@@ -1,0 +1,398 @@
+{
+ "border_16": {
+  "border": [
+   5,
+   5,
+   5,
+   5
+  ],
+  "height": 16,
+  "texture": "Texture2D/border_16.png",
+  "width": 16
+ },
+ "border_generic": {
+  "border": [
+   1,
+   1,
+   1,
+   1
+  ],
+  "height": 16,
+  "texture": "Texture2D/border_generic.png",
+  "width": 16
+ },
+ "bottom_bar_tile": {
+  "border": [
+   0,
+   0,
+   0,
+   0
+  ],
+  "height": 105,
+  "texture": "Texture2D/bottom_bar_tile.png",
+  "width": 128
+ },
+ "checkbox": {
+  "border": [
+   0,
+   0,
+   0,
+   0
+  ],
+  "height": 21,
+  "texture": "Texture2D/checkbox.png",
+  "width": 20
+ },
+ "checkbox_checked": {
+  "border": [
+   0,
+   0,
+   0,
+   0
+  ],
+  "height": 12,
+  "texture": "Texture2D/checkbox_checked.png",
+  "width": 14
+ },
+ "checkbox_empty": {
+  "border": [
+   0,
+   0,
+   0,
+   0
+  ],
+  "height": 21,
+  "texture": "Texture2D/checkbox_empty.png",
+  "width": 20
+ },
+ "close_button": {
+  "border": [
+   0,
+   0,
+   0,
+   0
+  ],
+  "height": 17,
+  "texture": "Texture2D/close_button.png",
+  "width": 27
+ },
+ "close_window_x": {
+  "border": [
+   0,
+   0,
+   0,
+   0
+  ],
+  "height": 11,
+  "texture": "Texture2D/close_window_x.png",
+  "width": 9
+ },
+ "escape_from_tarkov_logo": {
+  "border": [
+   0,
+   0,
+   0,
+   0
+  ],
+  "height": 317,
+  "texture": "Texture2D/escape_from_tarkov_logo.png",
+  "width": 713
+ },
+ "experience_bar_background": {
+  "border": [
+   4,
+   4,
+   4,
+   4
+  ],
+  "height": 9,
+  "texture": "Texture2D/experience_bar_background.png",
+  "width": 9
+ },
+ "experience_bar_gradient": {
+  "border": [
+   0,
+   0,
+   0,
+   0
+  ],
+  "height": 19,
+  "texture": "Texture2D/experience_bar_gradient.png",
+  "width": 1
+ },
+ "header_panel": {
+  "border": [
+   0,
+   0,
+   0,
+   0
+  ],
+  "height": 21,
+  "texture": "Texture2D/header_panel.png",
+  "width": 133
+ },
+ "header_shadow": {
+  "border": [
+   0,
+   0,
+   0,
+   0
+  ],
+  "height": 17,
+  "texture": "Texture2D/header_shadow.png",
+  "width": 40
+ },
+ "health_bar_border": {
+  "border": [
+   1,
+   1,
+   1,
+   1
+  ],
+  "height": 13,
+  "texture": "Texture2D/health_bar_border.png",
+  "width": 94
+ },
+ "health_bar_fill": {
+  "border": [
+   0,
+   0,
+   0,
+   0
+  ],
+  "height": 9,
+  "texture": "Texture2D/health_bar_fill.png",
+  "width": 1
+ },
+ "info_window_back": {
+  "border": [
+   0,
+   0,
+   0,
+   0
+  ],
+  "height": 226,
+  "texture": "Texture2D/info_window_back.png",
+  "width": 606
+ },
+ "input_box": {
+  "border": [
+   21,
+   21,
+   21,
+   21
+  ],
+  "height": 44,
+  "texture": "Texture2D/input_box.png",
+  "width": 44
+ },
+ "item_header_long": {
+  "border": [
+   0,
+   0,
+   0,
+   0
+  ],
+  "height": 21,
+  "texture": "Texture2D/item_header_long.png",
+  "width": 195
+ },
+ "level_fill_bar": {
+  "border": [
+   4,
+   4,
+   4,
+   4
+  ],
+  "height": 8,
+  "texture": "Texture2D/level_fill_bar.png",
+  "width": 8
+ },
+ "level_fill_bar_current": {
+  "border": [
+   0,
+   0,
+   0,
+   0
+  ],
+  "height": 19,
+  "texture": "Texture2D/level_fill_bar_current.png",
+  "width": 1
+ },
+ "location_button_background": {
+  "border": [
+   0,
+   0,
+   0,
+   0
+  ],
+  "height": 29,
+  "texture": "Texture2D/location_button_background.png",
+  "width": 184
+ },
+ "mainbutton_idle": {
+  "border": [
+   0,
+   0,
+   0,
+   0
+  ],
+  "height": 51,
+  "texture": "Texture2D/mainbutton_idle.png",
+  "width": 232
+ },
+ "mainbutton_redglow": {
+  "border": [
+   0,
+   0,
+   0,
+   0
+  ],
+  "height": 110,
+  "texture": "Texture2D/mainbutton_redglow.png",
+  "width": 290
+ },
+ "notification_item_background": {
+  "border": [
+   0,
+   2,
+   0,
+   2
+  ],
+  "height": 28,
+  "texture": "Texture2D/notification_item_background.png",
+  "width": 1
+ },
+ "option_button_off": {
+  "border": [
+   0,
+   0,
+   0,
+   0
+  ],
+  "height": 28,
+  "texture": "Texture2D/option_button_off.png",
+  "width": 37
+ },
+ "option_button_on": {
+  "border": [
+   0,
+   0,
+   0,
+   0
+  ],
+  "height": 28,
+  "texture": "Texture2D/option_button_on.png",
+  "width": 37
+ },
+ "scroller_button_drag_vertical": {
+  "border": [
+   0,
+   0,
+   0,
+   0
+  ],
+  "height": 11,
+  "texture": "Texture2D/scroller_button_drag_vertical.png",
+  "width": 10
+ },
+ "search_panel_gradient": {
+  "border": [
+   0,
+   0,
+   0,
+   0
+  ],
+  "height": 64,
+  "texture": "Texture2D/search_panel_gradient.png",
+  "width": 1
+ },
+ "skill_border": {
+  "border": [
+   6,
+   6,
+   6,
+   6
+  ],
+  "height": 12,
+  "texture": "Texture2D/skill_border.png",
+  "width": 12
+ },
+ "slider_background": {
+  "border": [
+   0,
+   43,
+   0,
+   42
+  ],
+  "height": 86,
+  "texture": "Texture2D/slider_background.png",
+  "width": 11
+ },
+ "statlist_header": {
+  "border": [
+   0,
+   0,
+   0,
+   0
+  ],
+  "height": 44,
+  "texture": "Texture2D/statlist_header.png",
+  "width": 1
+ },
+ "subbutton": {
+  "border": [
+   0,
+   0,
+   0,
+   0
+  ],
+  "height": 18,
+  "texture": "Texture2D/subbutton.png",
+  "width": 133
+ },
+ "tab_bar_gradient": {
+  "border": [
+   0,
+   0,
+   0,
+   0
+  ],
+  "height": 41,
+  "texture": "Texture2D/tab_bar_gradient.png",
+  "width": 1
+ },
+ "tab_button": {
+  "border": [
+   0,
+   0,
+   0,
+   0
+  ],
+  "height": 33,
+  "texture": "Texture2D/tab_button.png",
+  "width": 151
+ },
+ "test_infowindow_external": {
+  "border": [
+   0,
+   0,
+   0,
+   0
+  ],
+  "height": 447,
+  "texture": "Texture2D/test_infowindow_external.png",
+  "width": 721
+ },
+ "trader_panel_diagonal_lines": {
+  "border": [
+   0,
+   0,
+   0,
+   0
+  ],
+  "height": 64,
+  "texture": "Texture2D/trader_panel_diagonal_lines.png",
+  "width": 250
+ }
+}
