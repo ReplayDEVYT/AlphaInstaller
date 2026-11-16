@@ -13,7 +13,18 @@ import sys
 
 from PIL import Image
 
-ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+def _project_root():
+    # the folder holding TarkovAlphaServer, wherever this script was moved to
+    d = os.path.dirname(os.path.abspath(__file__))
+    while not os.path.isdir(os.path.join(d, "TarkovAlphaServer")):
+        parent = os.path.dirname(d)
+        if parent == d:
+            raise SystemExit("project root (the folder with TarkovAlphaServer) not found above " + __file__)
+        d = parent
+    return d
+
+
+ROOT = _project_root()
 ASSETS = os.path.join(ROOT, "Unity", "Assets")
 OUT = os.path.join(ROOT, "Tools", "installer", "Assets")
 DEFAULT = [

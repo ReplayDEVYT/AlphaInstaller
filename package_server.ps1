@@ -8,22 +8,29 @@
 #   python -I Tools\patch\make_patch.py server <site> <zip> --name <name> [--server-url NA=<link> --server-url EU=<link>]
 param([string]$Out = 'Build\ServerPackage', [switch]$Open)
 $ErrorActionPreference = 'Stop'
-$root = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
+# the folder holding TarkovAlphaServer, wherever this script was moved to
+$root = $PSScriptRoot
+while ($root -and -not (Test-Path (Join-Path $root 'TarkovAlphaServer'))) { $root = Split-Path -Parent $root }
+if (-not $root) { throw 'project root (the folder with TarkovAlphaServer) not found' }
 $server = Join-Path $root 'TarkovAlphaServer'
 if (-not [IO.Path]::IsPathRooted($Out)) { $Out = Join-Path $root $Out }
 $src = Join-Path $Out 'src'
 $stage = Join-Path $Out 'TarkovServer'
 
 Write-Host "Copying source to $src"
-if (Test-Path $src) { Remove-Item -Recurse -Force $src }
 New-Item -ItemType Directory -Force $src | Out-Null
-# robocopy exit codes below 8 are success
-& robocopy $server $src /E /NFL /NDL /NJH /NJS /NP /XD bin obj .git .vs /XF *.user | Out-Null
+# mirrored in place (/MIR removes files deleted from the source): deleting the folder fails while a build process
+# still has it open. robocopy exit codes below 8 are success
+& robocopy $server $src /MIR /NFL /NDL /NJH /NJS /NP /XD bin obj .git .vs /XF *.user | Out-Null
 if ($LASTEXITCODE -ge 8) { throw "robocopy failed ($LASTEXITCODE)" }
 
 Write-Host 'Publishing ConsoleApp (Release, win-x64, self-contained)'
-if (Test-Path $stage) { Remove-Item -Recurse -Force $stage }
-& dotnet publish (Join-Path $src 'Applications\ConsoleApp\ConsoleApp.csproj') -c Release -r win-x64 --self-contained true -o $stage -nologo -v q
+if (Test-Path $stage) {
+    try { Remove-Item -Recurse -Force $stage -ErrorAction Stop }
+    catch { $stage = Join-Path $Out ('TarkovServer_' + (Get-Date -Format 'yyyyMMdd_HHmmss')) } # old one still in use
+}
+# no build servers left running afterwards (they keep the source folder open)
+& dotnet publish (Join-Path $src 'Applications\ConsoleApp\ConsoleApp.csproj') -c Release -r win-x64 --self-contained true -o $stage -nologo -v q --disable-build-servers -nodeReuse:false
 if ($LASTEXITCODE -ne 0) { throw 'dotnet publish failed' }
 
 $refs = Join-Path $stage '_References'

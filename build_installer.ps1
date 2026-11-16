@@ -7,7 +7,10 @@
 param([string]$Feed = '', [string]$News = '', [string]$Out = 'Build\Installer')
 $ErrorActionPreference = 'Stop'
 $here = $PSScriptRoot
-$root = Split-Path -Parent (Split-Path -Parent $here)
+# the folder holding TarkovAlphaServer, wherever this script was moved to
+$root = $here
+while ($root -and -not (Test-Path (Join-Path $root 'TarkovAlphaServer'))) { $root = Split-Path -Parent $root }
+if (-not $root) { throw 'project root (the folder with TarkovAlphaServer) not found' }
 if (-not [IO.Path]::IsPathRooted($Out)) { $Out = Join-Path $root $Out }
 New-Item -ItemType Directory -Force $Out | Out-Null
 $gen = Join-Path $Out 'gen'

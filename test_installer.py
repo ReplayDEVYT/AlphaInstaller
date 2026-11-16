@@ -18,7 +18,18 @@ import sys
 import threading
 import zipfile
 
-ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+def _project_root():
+    # the folder holding TarkovAlphaServer, wherever this script was moved to
+    d = os.path.dirname(os.path.abspath(__file__))
+    while not os.path.isdir(os.path.join(d, "TarkovAlphaServer")):
+        parent = os.path.dirname(d)
+        if parent == d:
+            raise SystemExit("project root (the folder with TarkovAlphaServer) not found above " + __file__)
+        d = parent
+    return d
+
+
+ROOT = _project_root()
 OUT = os.path.join(ROOT, "Build", "InstallerTest")
 PATCH = os.path.join(ROOT, "Tools", "patch", "make_patch.py")
 EXE = os.path.join(ROOT, "Build", "Installer", "Escape from Tarkov Alpha Installer.exe")

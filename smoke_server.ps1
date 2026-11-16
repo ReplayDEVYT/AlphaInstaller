@@ -3,7 +3,10 @@
 #   powershell -ExecutionPolicy Bypass -File Tools\installer\smoke_server.ps1 <package zip>
 param([string]$Zip)
 $ErrorActionPreference = 'Stop'
-$root = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
+# the folder holding TarkovAlphaServer, wherever this script was moved to
+$root = $PSScriptRoot
+while ($root -and -not (Test-Path (Join-Path $root 'TarkovAlphaServer'))) { $root = Split-Path -Parent $root }
+if (-not $root) { throw 'project root (the folder with TarkovAlphaServer) not found' }
 $dir = Join-Path $root 'Build\ServerPackage\smoke'
 if (Test-Path $dir) { Remove-Item -Recurse -Force $dir }
 Add-Type -AssemblyName System.IO.Compression.FileSystem
