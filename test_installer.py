@@ -32,7 +32,7 @@ def _project_root():
 ROOT = _project_root()
 OUT = os.path.join(ROOT, "Build", "InstallerTest")
 PATCH = os.path.join(ROOT, "Tools", "patch", "make_patch.py")
-EXE = os.path.join(ROOT, "Build", "Installer", "Escape from Tarkov Alpha Installer.exe")
+EXE = os.environ.get("EFT_INSTALLER_EXE") or os.path.join(ROOT, "Build", "Installer", "Escape from Tarkov Alpha Installer.exe")
 PORT = 8775
 failures = []
 requests = []
@@ -207,6 +207,61 @@ try:
     shutil.copytree(old, old_game)
     code, log = cli("update", "--dir", old_game, "--mirror", "EU")
     check("update old -> new", code == 0 and tree(old_game) == tree(new), log)
+
+    # the launcher's own copy inside the game folder (Installer.exe) runs the update: its process lives in the game
+    # folder, which the patch's "is the game running" check must not count
+    def self_update(name, feed):
+        g = os.path.join(OUT, name)
+        shutil.copytree(old, g)
+        inner = os.path.join(g, "Installer.exe")
+        shutil.copy(EXE, inner)
+        log = os.path.join(OUT, name + ".log")
+        r = run(inner, "--feed", feed, "--log", log, "--cli", "update", "--dir", g, "--mirror", "EU")
+        text = open(log, encoding="utf-8").read() if os.path.exists(log) else r.stdout + r.stderr
+        t = tree(g, skip=("release_manifest.json", "Installer.exe"))
+        return r.returncode, text, t
+
+    code, log, t = self_update("game_self", feed_url)
+    check("launcher inside the game folder: update ok (new patch)", code == 0 and t == tree(new), log)
+    # a patch made before the fix carries the old check (any program from the game folder blocks it)
+    old_check = ("if (Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.Path -and $_.Path.StartsWith($Game, "
+                 "[StringComparison]::OrdinalIgnoreCase) }) {\n    throw 'Close the game first.'\n}\n")
+    src_zip = os.path.join(host, "dl2_patch.zip")
+    old_zip = os.path.join(host, "dl4_patch_oldcheck.zip")
+    with zipfile.ZipFile(src_zip) as zin, zipfile.ZipFile(old_zip, "w", zipfile.ZIP_DEFLATED) as zout:
+        for item in zin.infolist():
+            data = zin.read(item.filename)
+            if item.filename.endswith("apply_patch.ps1"):
+                text = data.decode("utf-8-sig")
+                start = text.index("# Only programs this update touches")
+                end = text.index("Write-Host \"Updating", start)
+                text = text[:start] + old_check.replace("\n", "\r\n" if "\r\n" in text else "\n") + text[end:]
+                data = text.encode("utf-8")
+            zout.writestr(item, data)
+    oldfeed = json.load(open(os.path.join(site, "updates.json"), encoding="utf-8"))
+    for p in oldfeed["patches"]:
+        p["links"] = [{"mirror": "EU", "url": host_url + "dl4_patch_oldcheck.zip"}]
+        p["sha256"] = hashlib.sha256(open(old_zip, "rb").read()).hexdigest()
+        p["size"] = os.path.getsize(old_zip)
+    json.dump(oldfeed, open(os.path.join(site, "updates_oldcheck.json"), "w", encoding="utf-8"), indent=1)
+    code, log, t = self_update("game_self_old", "http://127.0.0.1:%d/updates_oldcheck.json" % PORT)
+    check("launcher inside the game folder: update ok (patch with the old check)", code == 0 and t == tree(new) and "skips the launcher" in log, log)
+    # the game itself running from the folder still blocks the (new) patch script
+    blocked = os.path.join(OUT, "game_running")
+    shutil.copytree(old, blocked)
+    fake_game = os.path.join(blocked, "Escape from Tarkov Alpha.exe")
+    shutil.copy(os.path.join(os.environ["WINDIR"], "System32", "PING.EXE"), fake_game)
+    unpacked = os.path.join(OUT, "patch_unpacked")
+    with zipfile.ZipFile(src_zip) as z:
+        z.extractall(unpacked)
+    script = [os.path.join(d, f) for d, _, fs in os.walk(unpacked) for f in fs if f == "apply_patch.ps1"][0]
+    pinger = subprocess.Popen([fake_game, "-n", "30", "127.0.0.1"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    try:
+        r = run("powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", script, "-Game", blocked)
+    finally:
+        pinger.kill()
+    check("game running from the folder: patch refused", r.returncode != 0 and "Close the game first" in (r.stdout + r.stderr), r.stdout + r.stderr)
+    check("game running: folder unchanged", json.load(open(os.path.join(blocked, "release_manifest.json")))["version"] == old_v)
 
     # reinstall over a damaged old game: player files and the player's client.config.json stay
     re_game = os.path.join(OUT, "game_re")

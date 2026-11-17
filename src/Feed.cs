@@ -125,6 +125,7 @@ namespace EftInstaller
         public List<Release> Releases = new List<Release>();
         public List<Patch> Patches = new List<Patch>();
         public ServerRelease Server;
+        public Dictionary<string, object> LauncherEntry; // "launcher": where launcher updates are published (Launcher.Find)
 
         public Release LatestRelease { get { return Release(Latest); } }
 
@@ -225,6 +226,7 @@ namespace EftInstaller
                     File = Str(s, "url") ?? Str(s, "file"), Sha256 = Str(s, "sha256"), Size = Num(s, "size"), UnpackedSize = Num(s, "unpackedSize"),
                     Links = Links(s, "links"), GitHubRepo = Str(s, "github"), GitHubApi = Str(s, "githubApi") ?? "https://api.github.com",
                 };
+            feed.LauncherEntry = Obj(root, "launcher");
             return feed;
         }
 

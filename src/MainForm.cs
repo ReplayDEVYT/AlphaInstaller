@@ -28,8 +28,8 @@ namespace EftInstaller
         Color resultColor = Theme.Text;
         bool closeWhenDone;
 
-        readonly TkTab tabNews = new TkTab("News"), tabGame = new TkTab("Game"), tabServer = new TkTab("Server");
-        readonly Panel pageNews = Page(), pageGame = Page(), pageServer = Page();
+        readonly TkTab tabNews = new TkTab("News"), tabGame = new TkTab("Game"), tabServer = new TkTab("Server"), tabLauncher = new TkTab("Launcher");
+        readonly Panel pageNews = Page(), pageGame = Page(), pageServer = Page(), pageLauncher = Page();
         readonly TkLabel status = new TkLabel("", 15), detail = new TkLabel("", 14) { Align = StringAlignment.Far, Color = Theme.TextDim };
         readonly TkProgress bar = new TkProgress();
         readonly TkButton cancel = new TkButton("Cancel");
@@ -51,8 +51,17 @@ namespace EftInstaller
         readonly TkLabel sPorts = new TkLabel("", 14) { Color = Theme.TextDim };
         readonly TkCheck useGame = new TkCheck("Run raids with the installed game (sets gameServerPath)");
         readonly TkFeed serverNotes = new TkFeed();
-        readonly TkButton sOpen = new TkButton("Open folder"), sConfig = new TkButton("Edit config"),
+        readonly TkButton sOpen = new TkButton("Open folder"), sConfig = new TkButton("Config"),
             sInstall = new TkButton("Install server"), sStart = new TkButton("Start server", true), sBrowse = new TkButton("Browse");
+
+        LauncherRelease launcher;
+        readonly TkInput lFeed = new TkInput(), lNews = new TkInput();
+        readonly TkCheck lGameFeed = new TkCheck("Also use this site for the installed game's UPDATES button");
+        readonly TkLabel lSiteState = new TkLabel("", 14) { Color = Theme.TextDim, Wrap = true };
+        readonly TkButton lDefault = new TkButton("Use default"), lApply = new TkButton("Apply");
+        readonly TkLabel lVersion = Value(), lLatest = Value();
+        readonly TkFeed launcherNotes = new TkFeed();
+        readonly TkButton lCheck = new TkButton("Check again"), lUpdate = new TkButton("Update launcher", true);
 
         readonly System.Windows.Forms.Timer timer = new System.Windows.Forms.Timer { Interval = 50 };
         int refreshTick;
@@ -78,14 +87,16 @@ namespace EftInstaller
             Icon = Theme.AppIcon();
             KeyPreview = true;
 
-            foreach (TkTab t in new[] { tabNews, tabGame, tabServer }) Controls.Add(t);
+            foreach (TkTab t in new[] { tabNews, tabGame, tabServer, tabLauncher }) Controls.Add(t);
             Place(tabNews, 24, 158, 150, 36);
             Place(tabGame, 182, 158, 150, 36);
             Place(tabServer, 340, 158, 150, 36);
+            Place(tabLauncher, 498, 158, 150, 36);
             tabNews.Click += (s, e) => ShowTab(0);
             tabGame.Click += (s, e) => ShowTab(1);
             tabServer.Click += (s, e) => ShowTab(2);
-            foreach (Panel p in new[] { pageNews, pageGame, pageServer })
+            tabLauncher.Click += (s, e) => ShowTab(3);
+            foreach (Panel p in new[] { pageNews, pageGame, pageServer, pageLauncher })
             {
                 Controls.Add(p);
                 Place(p, 0, 206, W, 352);
@@ -111,6 +122,7 @@ namespace EftInstaller
             BuildNews();
             BuildGame();
             BuildServer();
+            BuildLauncher();
             ShowTab(settings.Tab);
 
             timer.Tick += (s, e) => Tick();
@@ -148,10 +160,12 @@ namespace EftInstaller
             tabNews.Selected = index == 0;
             tabGame.Selected = index == 1;
             tabServer.Selected = index == 2;
+            tabLauncher.Selected = index == 3;
             pageNews.Visible = index == 0;
             pageGame.Visible = index == 1;
             pageServer.Visible = index == 2;
-            foreach (TkTab t in new[] { tabNews, tabGame, tabServer }) t.Invalidate();
+            pageLauncher.Visible = index == 3;
+            foreach (TkTab t in new[] { tabNews, tabGame, tabServer, tabLauncher }) t.Invalidate();
         }
 
         void BuildNews()
@@ -235,7 +249,7 @@ namespace EftInstaller
             Place(sInstall, 544, 298, 190, 44);
             Place(sStart, 746, 298, 230, 44);
             sOpen.Click += (s, e) => OpenFolder(settings.ServerDir);
-            sConfig.Click += (s, e) => EditConfig();
+            sConfig.Click += (s, e) => ServerConfig();
             sInstall.Click += (s, e) => Run("Server", j =>
             {
                 Ops.InstallServer(feed, settings.ServerDir, settings.GameDir, settings.UseGame, j);
@@ -246,8 +260,10 @@ namespace EftInstaller
                 try
                 {
                     Ops.EnsureServerConfig(settings.ServerDir, settings.UseGame ? Ops.GameExePath(settings.GameDir) : null, new Job());
+                    // first start: open the server's ports in Windows Firewall (asks once for administrator rights)
+                    string firewall = Firewall.FirstStart(settings.ServerDir);
                     Ops.StartServer(settings.ServerDir);
-                    Result("Server started in its own window. Type exit there to stop it.", Theme.Good);
+                    Result("Server started in its own window. Type exit there to stop it." + (firewall != null ? " " + firewall : ""), Theme.Good);
                 }
                 catch (Exception ex)
                 {
@@ -279,20 +295,172 @@ namespace EftInstaller
             if (Directory.Exists(folder)) Process.Start("explorer.exe", "\"" + folder + "\"");
         }
 
-        void EditConfig()
+        /// <summary>SERVER > CONFIG: address/port, match client, matchmaking (ServerConfigForm).</summary>
+        void ServerConfig()
         {
-            string configs = Path.Combine(settings.ServerDir, "Files", "configs");
-            string config = Path.Combine(configs, "server.json");
             try
             {
                 Ops.EnsureServerConfig(settings.ServerDir, settings.UseGame ? Ops.GameExePath(settings.GameDir) : null, new Job());
-                if (File.Exists(config)) Process.Start("notepad.exe", "\"" + config + "\"");
-                else Result("Install the server first.", Theme.Bad);
+                using (var dialog = new ServerConfigForm(settings.ServerDir, settings.GameDir, settings.UseGame))
+                {
+                    if (dialog.ShowDialog(this) != DialogResult.OK) return;
+                    // the installed game as match client is kept up to date on every start (EnsureServerConfig)
+                    useGame.Checked = dialog.UseInstalledGame;
+                    settings.Save();
+                    Result(Ops.ServerRunning(settings.ServerDir) ? "Server config saved. Restart the server to use it." : "Server config saved.", Theme.Good);
+                    RefreshState();
+                }
             }
             catch (Exception ex)
             {
                 Result(ex.Message, Theme.Bad);
             }
+        }
+
+        // ------------------------------------------------------------------ LAUNCHER tab
+
+        void BuildLauncher()
+        {
+            Panel p = pageLauncher;
+            Caption(p, "Update site (updates.json)", 24, 8, 496);
+            p.Controls.Add(lFeed);
+            Place(lFeed, 24, 30, 496, 38);
+            lFeed.Text = Config.Feed;
+            Caption(p, "News (news.json, empty = the update site's)", 24, 78, 496);
+            p.Controls.Add(lNews);
+            Place(lNews, 24, 100, 496, 38);
+            lNews.Text = Config.News;
+            p.Controls.Add(lGameFeed);
+            Place(lGameFeed, 24, 148, 496, 26);
+            lGameFeed.Checked = settings.GameFeed;
+            lGameFeed.CheckedChanged += (s, e) => settings.GameFeed = lGameFeed.Checked;
+            p.Controls.Add(lSiteState);
+            Place(lSiteState, 24, 184, 496, 100);
+
+            Caption(p, "Launcher", 544, 8, 300);
+            var kv = new TkLabel("Installed", 15) { Color = Theme.TextDim };
+            var kl = new TkLabel("Latest", 15) { Color = Theme.TextDim };
+            foreach (Control c in new Control[] { kv, kl, lVersion, lLatest }) p.Controls.Add(c);
+            Place(kv, 544, 30, 100, 24);
+            Place(lVersion, 644, 30, 332, 24);
+            Place(kl, 544, 54, 100, 24);
+            Place(lLatest, 644, 54, 332, 24);
+            p.Controls.Add(launcherNotes);
+            Place(launcherNotes, 544, 86, 432, 198);
+            launcherNotes.SetBlocks(null, "Checking for launcher updates...");
+
+            foreach (TkButton b in new[] { lDefault, lApply, lCheck, lUpdate }) p.Controls.Add(b);
+            Place(lDefault, 24, 298, 150, 44);
+            Place(lApply, 370, 298, 150, 44);
+            Place(lCheck, 544, 298, 150, 44);
+            Place(lUpdate, 704, 298, 272, 44);
+            lDefault.Click += (s, e) => { lFeed.Text = Config.DefaultFeed; lNews.Text = Config.DefaultNews; ApplySite(); };
+            lApply.Click += (s, e) => ApplySite();
+            lCheck.Click += (s, e) => { launcher = null; RefreshState(); LoadFeedAsync(); };
+            lUpdate.Click += (s, e) => UpdateLauncher();
+        }
+
+        /// <summary>Takes the typed site, remembers it (registry; the launcher's default when it equals the default),
+        /// optionally points the installed game at it, reloads feed, news and launcher info.</summary>
+        void ApplySite()
+        {
+            string f = lFeed.Text.Trim(), n = lNews.Text.Trim();
+            Uri uri;
+            if (f.Length > 0 && !(Uri.TryCreate(f, UriKind.Absolute, out uri) && (uri.Scheme == "http" || uri.Scheme == "https" || uri.IsFile)))
+            {
+                Result("The update site must be a full address (https://.../updates.json).", Theme.Bad);
+                return;
+            }
+            if (n.Length > 0 && !(Uri.TryCreate(n, UriKind.Absolute, out uri) && (uri.Scheme == "http" || uri.Scheme == "https" || uri.IsFile)))
+            {
+                Result("The news address must be a full address (https://.../news.json), or empty.", Theme.Bad);
+                return;
+            }
+            if (f.Length == 0) { f = Config.DefaultFeed; lFeed.Text = f; }
+            bool isDefault = f == Config.DefaultFeed && n == (Config.DefaultNews ?? "");
+            settings.Feed = isDefault ? "" : f;
+            settings.News = isDefault ? "" : n;
+            settings.Save();
+            Config.Feed = f;
+            Config.News = n;
+            Program.Log("update site: " + f + (n.Length > 0 ? ", news " + n : "") + (isDefault ? " (default)" : ""));
+            if (settings.GameFeed && Manifest.Read(settings.GameDir) != null)
+                Archive.SetGameFeed(settings.GameDir, f, new Job { Log = Program.Log }, true);
+            feed = null;
+            feedError = null;
+            launcher = null;
+            newsFeed.SetBlocks(null, "Loading news...");
+            Result("Update site set. Loading...", Theme.Text);
+            RefreshState();
+            LoadFeedAsync();
+        }
+
+        void UpdateLauncher()
+        {
+            LauncherRelease r = launcher;
+            if (!Launcher.IsNewer(r)) return;
+            string exe = null;
+            Run("Launcher", j => { exe = Launcher.Update(r, j); }, null);
+            // Run finishes on the UI thread (Finished): start the new launcher there
+            pendingRestart = () =>
+            {
+                if (exe == null) return;
+                try
+                {
+                    settings.Save();
+                    Process.Start(new ProcessStartInfo(exe, "--updated-from \"" + Config.Version + "\"") { WorkingDirectory = Path.GetDirectoryName(exe), UseShellExecute = false });
+                    Close();
+                }
+                catch (Exception ex)
+                {
+                    Result("The launcher was updated. Start it again: " + ex.Message, Theme.Good);
+                }
+            };
+        }
+
+        Action pendingRestart;
+
+        public void ShowUpdated(string from)
+        {
+            settings.Tab = 3;
+            ShowTab(3);
+            Result("The launcher was updated from " + from + " to " + Config.Version + ".", Theme.Good);
+        }
+
+        void RefreshLauncher(bool busy)
+        {
+            lVersion.Set(Config.Version, Theme.Text);
+            if (launcher == null)
+            {
+                lLatest.Set("checking...", Theme.TextDim);
+                lUpdate.Enabled = false;
+            }
+            else if (launcher.Error != null)
+            {
+                lLatest.Set(launcher.Error, Theme.Bad);
+                launcherNotes.SetBlocks(null, "Launcher updates are looked for at " + (launcher.Source ?? "-") + ".");
+                lUpdate.Enabled = false;
+            }
+            else
+            {
+                bool newer = Launcher.IsNewer(launcher);
+                bool older = !newer && Launcher.Compare(launcher.Version, Config.Version) < 0;
+                lLatest.Set((launcher.Name ?? launcher.Version) + (string.IsNullOrEmpty(launcher.Date) ? "" : "   " + launcher.Date) + (newer ? "" : older ? "  (older than yours)" : "  (you have it)"), newer ? Theme.Text : Theme.Good);
+                lVersion.Set(Config.Version + (newer ? "  (update available)" : "  (up to date)"), newer ? Theme.Text : Theme.Good);
+                var blocks = new List<TkBlock>();
+                if (!string.IsNullOrEmpty(launcher.Notes) || newer)
+                    blocks.Add(new TkBlock { Title = "Launcher " + (launcher.Name ?? launcher.Version), Date = launcher.Date, Body = string.IsNullOrEmpty(launcher.Notes) ? "No notes." : launcher.Notes });
+                launcherNotes.SetBlocks(blocks, "No launcher notes. Updates come from " + launcher.Source + ".");
+                lUpdate.Enabled = !busy && newer;
+                lUpdate.Text = newer ? "Update to " + (launcher.Name ?? launcher.Version) : "Update launcher";
+            }
+            lCheck.Enabled = !busy;
+            lApply.Enabled = lDefault.Enabled = !busy;
+            lFeed.Enabled = lNews.Enabled = !busy;
+            string site = feed != null ? "Connected: latest game " + feed.NameOf(feed.Latest) + (feed.Server != null ? ", server " + (feed.Server.Name ?? feed.Server.Version ?? "-") : "") + "."
+                : feedError != null ? feedError : "Loading " + Config.Feed + "...";
+            bool custom = !string.IsNullOrEmpty(settings.Feed);
+            lSiteState.Set(site + (custom ? "\nYour own site (USE DEFAULT goes back to " + Config.DefaultFeed + ")." : "\nThe launcher's default site."), feed != null ? Theme.TextDim : feedError != null ? Theme.Bad : Theme.TextDim);
         }
 
         Mirror CurrentMirror { get { return feed != null ? feed.MirrorById(settings.Mirror) : null; } }
@@ -343,18 +511,23 @@ namespace EftInstaller
                 {
                     nError = "Could not load the news: " + ex.Message;
                 }
-                try { BeginInvoke((Action)(() => FeedLoaded(f, error, n, nError))); }
+                LauncherRelease l;
+                try { l = Launcher.Find(f); }
+                catch (Exception ex) { l = new LauncherRelease { Error = ex.Message }; }
+                try { BeginInvoke((Action)(() => FeedLoaded(f, error, n, nError, l))); }
                 catch (InvalidOperationException) { }
             }) { IsBackground = true };
             thread.Start();
         }
 
-        public void FeedLoaded(Feed f, string error, List<TkBlock> n, string nError)
+        public void FeedLoaded(Feed f, string error, List<TkBlock> n, string nError, LauncherRelease l)
         {
             feed = f;
             feedError = error;
             news = n;
             newsError = nError;
+            launcher = l;
+            if (l != null) Program.Log("launcher: running " + Config.Version + ", latest " + (l.Error ?? l.Version + " (" + l.Source + ")"));
             if (feed != null && feed.MirrorById(settings.Mirror) != null) settings.Mirror = feed.MirrorById(settings.Mirror).Id;
             BuildMirrors(gMirrorRow, gMirrors);
             newsFeed.SetBlocks(news, newsError ?? (string.IsNullOrEmpty(Config.NewsFor(feed)) ? "No news." : "No news yet."));
@@ -471,9 +644,12 @@ namespace EftInstaller
                        "(the installed game runs it, without a window).\n\n" +
                        "Playing alone: start the server, then pick it in the game's server list (SERVER button on the login screen, address 127.0.0.1, port 6969).\n\n" +
                        "Playing with others: they connect to your address. Forward TCP for the server's port and UDP for the raid ports " +
-                       "in your router, or use a VPN such as Radmin VPN or ZeroTier and set \"ip\" and \"matchmaking\" > \"matchIp\" in the config to that address."
+                       "in your router, or use a VPN such as Radmin VPN or ZeroTier and set the server address and the raid address in CONFIG to that address.\n\n" +
+                       "CONFIG also picks the match client (the program that runs the raids), the match mode and the raid ports."
             });
             serverNotes.SetBlocks(hosting, "");
+
+            RefreshLauncher(busy);
         }
 
         bool showingVerify;
@@ -572,6 +748,9 @@ namespace EftInstaller
             if (message != null) Result(message, color);
             else if (!showingVerify) Result("", Theme.Text);
             RefreshState();
+            Action restart = pendingRestart;
+            pendingRestart = null;
+            if (restart != null && !closeWhenDone) { restart(); return; }
             if (closeWhenDone) Close();
         }
 
@@ -650,7 +829,7 @@ namespace EftInstaller
             int lh = Theme.S(104), lw = logo.Width * lh / logo.Height;
             Theme.Draw(g, logo, new Rectangle(Theme.S(18), Theme.S(36), lw, lh));
             Theme.DrawText(g, "ALPHA", Theme.Font(22, true), Theme.Text, new RectangleF(Theme.S(26) + lw, Theme.S(100), Theme.S(200), Theme.S(30)));
-            Theme.DrawText(g, "INSTALLER", Theme.Font(13, true), Theme.TextDim, new RectangleF(Theme.S(14), 0, Theme.S(300), Theme.S(32)));
+            Theme.DrawText(g, "LAUNCHER  " + Config.Version, Theme.Font(13, true), Theme.TextDim, new RectangleF(Theme.S(14), 0, Theme.S(300), Theme.S(32)));
             // header line under the tabs, the game's header_panel plate
             using (var pen = new Pen(Theme.Line)) g.DrawLine(pen, Theme.S(24), Theme.S(196), w - Theme.S(24), Theme.S(196));
             Theme.Draw(g, Theme.Img("header_shadow"), new Rectangle(Theme.S(24), Theme.S(197), Theme.S(140), Theme.S(10)), null, 0.6f);

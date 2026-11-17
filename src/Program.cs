@@ -4,7 +4,8 @@
 //   Installer.exe                                   the window
 //   Installer.exe --feed <url> --news <url>         other site (also installer.cfg next to the exe: feed=..., news=...)
 //   Installer.exe --cli install|update|reinstall|verify|server --dir <folder> [--game <folder>] [--mirror ID] [--log <file>]
-//   Installer.exe --screenshot <png> [--tab 0|1|2] [--dir <game folder>] [--server-dir <folder>]
+//   Installer.exe --screenshot <png> [--tab 0|1|2|3] [--dir <game folder>] [--server-dir <folder>] [--server-config]
+//   Installer.exe --cli launcher-check | launcher-update      (self-update without the window, for tests)
 using System;
 using System.Collections.Generic;
 using System.Drawing;
@@ -23,8 +24,15 @@ namespace EftInstaller
     {
         public static string Feed = BuiltFeed;
         public static string News = BuiltNews;
+        /// <summary>The launcher's own version (version.txt at build time) and the GitHub repository its updates come
+        /// from when the feed names none.</summary>
+        public const string Version = BuiltVersion;
+        public const string LauncherRepo = BuiltLauncherRepo;
+        /// <summary>The site before the player's own choice (LAUNCHER tab): build, installer.cfg.</summary>
+        public static string DefaultFeed = BuiltFeed, DefaultNews = BuiltNews;
 
-        /// <summary>Reads installer.cfg (feed=, news=) next to the exe.</summary>
+        /// <summary>Built-in site, then installer.cfg (feed=, news=) next to the exe, then the site picked on the
+        /// LAUNCHER tab (Settings.Feed/News). --feed/--news on the command line come after this.</summary>
         public static void Resolve()
         {
             try
@@ -39,6 +47,10 @@ namespace EftInstaller
                     }
             }
             catch (Exception) { }
+            DefaultFeed = Feed;
+            DefaultNews = News;
+            Settings s = Settings.Load();
+            if (!string.IsNullOrEmpty(s.Feed)) { Feed = s.Feed; News = s.News ?? ""; }
         }
 
         /// <summary>The news URL: set explicitly (build, installer.cfg, --news), else the feed's "news" field resolved
@@ -107,8 +119,11 @@ namespace EftInstaller
     {
         const string Key = @"Software\EFTAlphaReconstruction\Installer";
         public string GameDir, ServerDir, Mirror;
-        public bool Desktop = true, UseGame = true;
+        /// <summary>Update site picked on the LAUNCHER tab (empty = the launcher's default); News empty = from the feed.</summary>
+        public string Feed, News;
+        public bool Desktop = true, UseGame = true, GameFeed = true;
         public int Tab;
+        public const int Tabs = 4;
 
         public static Settings Load()
         {
@@ -129,8 +144,11 @@ namespace EftInstaller
                         s.Mirror = k.GetValue("Mirror") as string;
                         s.Desktop = (k.GetValue("Desktop") as string) != "0";
                         s.UseGame = (k.GetValue("UseGame") as string) != "0";
+                        s.GameFeed = (k.GetValue("GameFeed") as string) != "0";
+                        s.Feed = k.GetValue("Feed") as string;
+                        s.News = k.GetValue("News") as string;
                         int tab;
-                        if (int.TryParse(k.GetValue("Tab") as string, out tab) && tab >= 0 && tab <= 2) s.Tab = tab;
+                        if (int.TryParse(k.GetValue("Tab") as string, out tab) && tab >= 0 && tab < Tabs) s.Tab = tab;
                     }
                 }
             }
@@ -152,6 +170,9 @@ namespace EftInstaller
                     k.SetValue("Mirror", Mirror ?? "");
                     k.SetValue("Desktop", Desktop ? "1" : "0");
                     k.SetValue("UseGame", UseGame ? "1" : "0");
+                    k.SetValue("GameFeed", GameFeed ? "1" : "0");
+                    k.SetValue("Feed", Feed ?? "");
+                    k.SetValue("News", News ?? "");
                     k.SetValue("Tab", Tab.ToString());
                 }
             }
@@ -188,6 +209,9 @@ namespace EftInstaller
         static int Main(string[] args)
         {
             try { SetProcessDPIAware(); } catch (Exception) { }
+            // TLS 1.2 for every request (GitHub and Cloudflare refuse the .NET 4 defaults); set here, not only in Ops's
+            // static constructor, which a request that only uses Ops's constants never runs
+            System.Net.ServicePointManager.SecurityProtocol |= (System.Net.SecurityProtocolType)3072;
             Config.Resolve();
             if (Arg(args, "--feed") != null) Config.Feed = Arg(args, "--feed");
             if (Arg(args, "--news") != null) Config.News = Arg(args, "--news");
@@ -199,12 +223,19 @@ namespace EftInstaller
 
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
-            Log("installer started, feed " + Config.Feed + ", news " + Config.News + ", font " + Theme.FontName + ", scale " + Theme.Scale);
+            Log("launcher " + Config.Version + " started, feed " + Config.Feed + ", news " + Config.News + ", font " + Theme.FontName + ", scale " + Theme.Scale);
 
             if (Arg(args, "--screenshot") != null) return Screenshot(args);
+            // a self-update started this copy: the previous exe (.old) can go now
+            Launcher.CleanUp();
             using (var form = new MainForm())
             {
-                form.Load += (s, e) => form.LoadFeedAsync();
+                string from = Arg(args, "--updated-from");
+                form.Load += (s, e) =>
+                {
+                    form.LoadFeedAsync();
+                    if (from != null) form.ShowUpdated(from);
+                };
                 Application.Run(form);
             }
             return 0;
@@ -229,10 +260,28 @@ namespace EftInstaller
                 form.Location = new Point(-20000, -20000);
                 form.ShowInTaskbar = false;
                 form.Show();
-                form.FeedLoaded(f, error, n, nError);
+                form.FeedLoaded(f, error, n, nError, Launcher.Find(f));
                 form.SelectTab(settings.Tab);
                 if (Array.IndexOf(args, "--demo-progress") >= 0) form.DemoProgress();
                 Application.DoEvents();
+                if (Array.IndexOf(args, "--server-config") >= 0)
+                {
+                    using (var dialog = new ServerConfigForm(settings.ServerDir, settings.GameDir, settings.UseGame))
+                    {
+                        dialog.StartPosition = FormStartPosition.Manual;
+                        dialog.Location = new Point(-20000, -20000);
+                        dialog.Show();
+                        // a few seconds for background lookups (the external IP) to come back
+                        DateTime until = DateTime.Now.AddSeconds(6);
+                        while (DateTime.Now < until) { Application.DoEvents(); System.Threading.Thread.Sleep(50); }
+                        using (var b = new Bitmap(dialog.ClientSize.Width, dialog.ClientSize.Height))
+                        {
+                            dialog.DrawToBitmap(b, new Rectangle(0, 0, b.Width, b.Height));
+                            b.Save(Arg(args, "--screenshot"), ImageFormat.Png);
+                        }
+                    }
+                    return 0;
+                }
                 using (Bitmap b = form.CaptureImage()) b.Save(Arg(args, "--screenshot"), ImageFormat.Png);
             }
             return 0;
@@ -253,6 +302,16 @@ namespace EftInstaller
             }, null, 500, 500);
             try
             {
+                if (what == "launcher-check" || what == "launcher-update")
+                {
+                    Feed lf = null;
+                    try { lf = Feed.Load(Config.Feed); } catch (Exception ex) { Log("feed: " + ex.Message); }
+                    LauncherRelease lr = Launcher.Find(lf);
+                    Log("LAUNCHER: running " + Config.Version + ", latest " + (lr.Error ?? lr.Version + " from " + lr.Source + (Launcher.IsNewer(lr) ? " (newer)" : " (not newer)")));
+                    if (what == "launcher-check" || !Launcher.IsNewer(lr)) return lr.Error == null ? 0 : 1;
+                    Log("UPDATED: " + Launcher.Update(lr, job));
+                    return 0;
+                }
                 if (what == "verify")
                 {
                     List<string> bad = Ops.VerifyGame(dir, job);

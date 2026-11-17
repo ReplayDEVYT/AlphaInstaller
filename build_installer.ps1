@@ -4,7 +4,7 @@
 # -Feed defaults to the URL in Unity\Assets\StreamingAssets\Reconstruction\update_feed.txt (the game's own feed), -News to
 # news.json next to it. Both can be overridden later without a rebuild: installer.cfg next to the exe (feed=..., news=...).
 # The UI sprites (Tools\installer\Assets) come from the project: extract_ui_sprites.py; the font: otf_to_ttf.py.
-param([string]$Feed = '', [string]$News = '', [string]$Out = 'Build\Installer')
+param([string]$Feed = '', [string]$News = '', [string]$Out = 'Build\Installer', [string]$Version = '', [string]$LauncherRepo = 'ReplayDEVYT/AlphaInstaller')
 $ErrorActionPreference = 'Stop'
 $here = $PSScriptRoot
 # the folder holding TarkovAlphaServer, wherever this script was moved to
@@ -24,6 +24,8 @@ if (-not $Feed) {
     }
 }
 if (-not $Feed) { Write-Warning 'No feed URL: the installer needs installer.cfg (feed=<URL>) next to it.' }
+# the launcher's version (shown in the window, compared with the latest release for self-updates): version.txt
+if (-not $Version) { $Version = (Get-Content (Join-Path $here 'version.txt') -TotalCount 1).Trim() }
 function CsString([string]$s) { '"' + $s.Replace('\', '\\').Replace('"', '\"') + '"' }
 Set-Content -LiteralPath (Join-Path $gen 'Config.g.cs') -Encoding UTF8 -Value @"
 namespace EftInstaller
@@ -32,6 +34,8 @@ namespace EftInstaller
     {
         const string BuiltFeed = $(CsString $Feed);
         const string BuiltNews = $(CsString $News);
+        const string BuiltVersion = $(CsString $Version);
+        const string BuiltLauncherRepo = $(CsString $LauncherRepo);
     }
 }
 "@
@@ -90,4 +94,4 @@ $lines.Add("`"$(Join-Path $gen 'Config.g.cs')`"")
 [IO.File]::WriteAllLines($rsp, $lines)
 & dotnet $csc "@$rsp"
 if ($LASTEXITCODE -ne 0) { throw 'compile failed' }
-Write-Host ("Installer: {0} ({1:N0} KB), feed '{2}'" -f $exe, ((Get-Item $exe).Length / 1KB), $Feed)
+Write-Host ("Launcher {3}: {0} ({1:N0} KB), feed '{2}', updates from github.com/{4}" -f $exe, ((Get-Item $exe).Length / 1KB), $Feed, $Version, $LauncherRepo)

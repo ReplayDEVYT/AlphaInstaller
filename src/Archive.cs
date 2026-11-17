@@ -115,15 +115,20 @@ namespace EftInstaller
 
         /// <summary>Builds shipped without a feed URL in update_feed.txt never check for updates: give them the
         /// installer's. A file that already names a URL is left alone.</summary>
-        public static void SetGameFeed(string folder, string feedUrl, Job job)
+        /// <summary>Puts the feed URL into the game's update_feed.txt: only when it names none, or (replace, the LAUNCHER
+        /// tab's site change) in place of the one it names. Comment lines stay.</summary>
+        public static void SetGameFeed(string folder, string feedUrl, Job job, bool replace = false)
         {
             if (string.IsNullOrEmpty(feedUrl) || !feedUrl.StartsWith("http", StringComparison.OrdinalIgnoreCase)) return;
-            string path = Path.Combine(folder, FeedFile.Replace('/', '\\'));
+            string path = Path.Combine(folder ?? "", FeedFile.Replace('/', '\\'));
             try
             {
-                if (!Directory.Exists(Path.GetDirectoryName(path))) return;
+                if (string.IsNullOrEmpty(folder) || !Directory.Exists(Path.GetDirectoryName(path))) return;
                 string[] lines = File.Exists(path) ? File.ReadAllLines(path) : new string[0];
-                if (lines.Any(l => l.Trim().Length > 0 && !l.Trim().StartsWith("#"))) return;
+                bool named = lines.Any(l => l.Trim().Length > 0 && !l.Trim().StartsWith("#"));
+                if (named && !replace) return;
+                if (named && lines.Any(l => l.Trim() == feedUrl)) return;
+                lines = lines.Where(l => l.Trim().Length == 0 || l.Trim().StartsWith("#")).ToArray();
                 File.WriteAllLines(path, lines.Concat(new[] { feedUrl }).ToArray(), new UTF8Encoding(false));
                 job.Log("update_feed.txt: " + feedUrl);
             }

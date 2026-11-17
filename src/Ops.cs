@@ -488,8 +488,30 @@ namespace EftInstaller
             }
         }
 
+        /// <summary>Patches made before 2026-11-16 refuse to run while any program from the game folder runs, which
+        /// includes this launcher's own copy there (Installer.exe). Their check is told to skip this process; patches
+        /// made since check only the game and the files they replace.</summary>
+        static void AllowSelfInGameFolder(string script, Job job)
+        {
+            const string oldCheck = "Where-Object { $_.Path -and $_.Path.StartsWith($Game, [StringComparison]::OrdinalIgnoreCase) }";
+            try
+            {
+                string text = File.ReadAllText(script);
+                if (!text.Contains(oldCheck)) return;
+                int pid = Process.GetCurrentProcess().Id;
+                text = text.Replace(oldCheck, "Where-Object { $_.Id -ne " + pid + " -and $_.Path -and $_.Path.StartsWith($Game, [StringComparison]::OrdinalIgnoreCase) }");
+                File.WriteAllText(script, text, new UTF8Encoding(true));
+                job.Log("older patch: its running-program check skips the launcher (pid " + pid + ")");
+            }
+            catch (Exception ex)
+            {
+                job.Log("could not adjust the patch's running-program check: " + ex.Message);
+            }
+        }
+
         static void RunPatch(string script, string folder, Job job)
         {
+            AllowSelfInGameFolder(script, job);
             var psi = new ProcessStartInfo("powershell.exe",
                 "-NoProfile -NonInteractive -ExecutionPolicy Bypass -File \"" + script + "\" -Game \"" + folder.TrimEnd('\\') + "\"")
             {
