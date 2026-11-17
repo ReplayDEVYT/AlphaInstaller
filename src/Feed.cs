@@ -95,7 +95,7 @@ namespace EftInstaller
                 server.Notes = Feed.Str(release, "body");
                 if (asset == null)
                 {
-                    server.Error = "the latest server release on GitHub has no .zip file";
+                    server.Error = "the latest server release (" + Launcher.HostOf(server.GitHubApi) + "/" + server.GitHubRepo + ") has no .zip file";
                     return;
                 }
                 server.File = Feed.Str(asset, "browser_download_url");
@@ -107,12 +107,12 @@ namespace EftInstaller
             {
                 var response = ex.Response as HttpWebResponse;
                 server.Error = response != null && (int)response.StatusCode == 404
-                    ? "no published server release on GitHub (" + server.GitHubRepo + ")"
-                    : "GitHub not reachable: " + ex.Message;
+                    ? "no published server release (" + Launcher.HostOf(server.GitHubApi) + "/" + server.GitHubRepo + ")"
+                    : "release host not reachable: " + ex.Message;
             }
             catch (Exception ex)
             {
-                server.Error = "GitHub answer not readable: " + ex.Message;
+                server.Error = "release host answer not readable: " + ex.Message;
             }
         }
     }

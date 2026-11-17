@@ -1,5 +1,5 @@
 // The launcher's own updates: where the newest launcher is published (the feed's "launcher" entry, else the latest
-// GitHub release of the repository the launcher was built for) and replacing the running exe with it.
+// release of the repository (Codeberg or GitHub release API) the launcher was built for) and replacing the running exe with it.
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -26,7 +26,7 @@ namespace EftInstaller
         {
             Dictionary<string, object> entry = feed != null ? feed.LauncherEntry : null;
             string repo = Config.LauncherRepo;
-            string api = "https://api.github.com";
+            string api = Config.LauncherApi;
             if (entry != null)
             {
                 string github = Feed.Str(entry, "github");
@@ -67,7 +67,7 @@ namespace EftInstaller
         /// installer/launcher first) = download, its digest = checksum.</summary>
         static LauncherRelease FromGitHub(string repo, string api)
         {
-            var r = new LauncherRelease { Source = "github.com/" + repo };
+            var r = new LauncherRelease { Source = HostOf(api) + "/" + repo };
             string url = api.TrimEnd('/') + "/repos/" + repo + "/releases/latest";
             try
             {
@@ -102,13 +102,20 @@ namespace EftInstaller
             catch (WebException ex)
             {
                 var response = ex.Response as HttpWebResponse;
-                r.Error = response != null && (int)response.StatusCode == 404 ? "no published launcher release (" + r.Source + ")" : "GitHub not reachable: " + ex.Message;
+                r.Error = response != null && (int)response.StatusCode == 404 ? "no published launcher release (" + r.Source + ")" : "release host not reachable (" + r.Source + "): " + ex.Message;
             }
             catch (Exception ex)
             {
-                r.Error = "GitHub answer not readable: " + ex.Message;
+                r.Error = "release host answer not readable: " + ex.Message;
             }
             return r;
+        }
+
+        /// <summary>"https://codeberg.org/api/v1" -> "codeberg.org", "https://api.github.com" -> "github.com".</summary>
+        internal static string HostOf(string api)
+        {
+            try { string host = new Uri(api).Host; return host.StartsWith("api.") ? host.Substring(4) : host; }
+            catch (Exception) { return api; }
         }
 
         /// <summary>Version order: numbers part by part ("1.10" after "1.9"), a leading "v" ignored.</summary>

@@ -9,12 +9,13 @@ launcher self-update). The look is the game's: Bender font and the project's UI 
 ## Build
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File Tools\installer\AlphaInstaller\build_installer.ps1 [-Feed https://<site>/updates.json] [-News https://<site>/news.json] [-Version 1.2] [-LauncherRepo owner/repo]
+powershell -ExecutionPolicy Bypass -File Tools\installer\AlphaInstaller\build_installer.ps1 [-Feed https://<site>/updates.json] [-News https://<site>/news.json] [-Version 1.2] [-LauncherRepo owner/repo] [-LauncherApi <API URL>]
 ```
 
 Without `-Feed` it takes the game's own feed URL from `Unity\Assets\StreamingAssets\Reconstruction\update_feed.txt`.
 `-News` defaults to the feed's `news` field / `news.json` next to `updates.json`. `-Version` defaults to
-`version.txt`; `-LauncherRepo` (default `ReplayDEVYT/AlphaInstaller`) is where launcher updates are looked for.
+`version.txt`; `-LauncherRepo` (default `mizmii/AlphaInstaller`) and `-LauncherApi` (default `https://codeberg.org/api/v1`; GitHub:
+`https://api.github.com`) are where launcher updates are looked for.
 The site can be changed later without a rebuild: `installer.cfg` next to the exe (`feed=<URL>` / `news=<URL>`), or by
 the player on the LAUNCHER tab (stored in `HKCU\Software\EFTAlphaReconstruction\Installer`, `Feed`/`News`; wins over
 installer.cfg; USE DEFAULT clears it). With "Also use this site for the installed game's UPDATES button" the game's
@@ -23,7 +24,7 @@ installer.cfg; USE DEFAULT clears it). With "Also use this site for the installe
 ## LAUNCHER tab: self-update
 
 The launcher shows its version (`version.txt`) and the latest published one: the feed's `"launcher"` entry when it
-has one (`make_patch.py launcher`), else the latest GitHub release of `-LauncherRepo` (tag = version, release text =
+has one (`make_patch.py launcher`), else the latest release of `-LauncherRepo` on `-LauncherApi` (tag = version, release text =
 notes, the `.exe` asset, GitHub's digest = checksum). UPDATE downloads it next to the running exe (`.new`), checks
 the checksum and that it is a program, renames the running exe to `.old` (Windows allows renaming a running exe, not
 overwriting it), moves the new one into its place, starts it with `--updated-from <old version>` and closes; the new

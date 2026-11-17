@@ -24,10 +24,11 @@ namespace EftInstaller
     {
         public static string Feed = BuiltFeed;
         public static string News = BuiltNews;
-        /// <summary>The launcher's own version (version.txt at build time) and the GitHub repository its updates come
-        /// from when the feed names none.</summary>
+        /// <summary>The launcher's own version (version.txt at build time) and the repository its updates come from when
+        /// the feed names none (a GitHub-style release API: Codeberg/Forgejo or GitHub).</summary>
         public const string Version = BuiltVersion;
         public const string LauncherRepo = BuiltLauncherRepo;
+        public const string LauncherApi = BuiltLauncherApi;
         /// <summary>The site before the player's own choice (LAUNCHER tab): build, installer.cfg.</summary>
         public static string DefaultFeed = BuiltFeed, DefaultNews = BuiltNews;
 

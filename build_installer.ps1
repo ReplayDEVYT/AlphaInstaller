@@ -4,7 +4,7 @@
 # -Feed defaults to the URL in Unity\Assets\StreamingAssets\Reconstruction\update_feed.txt (the game's own feed), -News to
 # news.json next to it. Both can be overridden later without a rebuild: installer.cfg next to the exe (feed=..., news=...).
 # The UI sprites (Tools\installer\Assets) come from the project: extract_ui_sprites.py; the font: otf_to_ttf.py.
-param([string]$Feed = '', [string]$News = '', [string]$Out = 'Build\Installer', [string]$Version = '', [string]$LauncherRepo = 'ReplayDEVYT/AlphaInstaller')
+param([string]$Feed = '', [string]$News = '', [string]$Out = 'Build\Installer', [string]$Version = '', [string]$LauncherRepo = 'mizmii/AlphaInstaller', [string]$LauncherApi = 'https://codeberg.org/api/v1')
 $ErrorActionPreference = 'Stop'
 $here = $PSScriptRoot
 # the folder holding TarkovAlphaServer, wherever this script was moved to
@@ -36,6 +36,7 @@ namespace EftInstaller
         const string BuiltNews = $(CsString $News);
         const string BuiltVersion = $(CsString $Version);
         const string BuiltLauncherRepo = $(CsString $LauncherRepo);
+        const string BuiltLauncherApi = $(CsString $LauncherApi);
     }
 }
 "@
@@ -94,4 +95,4 @@ $lines.Add("`"$(Join-Path $gen 'Config.g.cs')`"")
 [IO.File]::WriteAllLines($rsp, $lines)
 & dotnet $csc "@$rsp"
 if ($LASTEXITCODE -ne 0) { throw 'compile failed' }
-Write-Host ("Launcher {3}: {0} ({1:N0} KB), feed '{2}', updates from github.com/{4}" -f $exe, ((Get-Item $exe).Length / 1KB), $Feed, $Version, $LauncherRepo)
+Write-Host ("Launcher {3}: {0} ({1:N0} KB), feed '{2}', updates from {4} ({5})" -f $exe, ((Get-Item $exe).Length / 1KB), $Feed, $Version, $LauncherRepo, $LauncherApi)
